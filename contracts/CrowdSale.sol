@@ -1,111 +1,201 @@
 pragma solidity ^ 0.4 .19;
 import "./../node_modules/zeppelin-solidity/contracts/math/SafeMath.sol";
 import "./../node_modules/zeppelin-solidity/contracts/ownership/Ownable.sol";
-import "./ERC223Token.sol";
+contract ERC223 {
+    function balanceOf(address who)public view returns(uint);
 
-contract CrowdSale is Ownable,
-ERC223Token {
-    uint startBlock;
-    using SafeMath for uint256;
+    function name()public view returns(string);
+    function symbol()public view returns(string);
+    function decimals()public view returns(uint);
+    function totalSupply()public view returns(uint256);
 
+    function transfer(address to, uint value)public returns(bool ok);
+    function transfer(address to, uint value, bytes data)public returns(bool ok);
+    function transfer(address to, uint value, bytes data, string custom_fallback)public returns(
+        bool ok
+    );
+    function increaseBalance(address recieverAddr, uint256 _tokens)public returns(
+        bool
+    );
+    function decreaseBalance(address recieverAddr, uint256 _tokens)public returns(
+        bool
+    );
+
+}
+contract CrowdSale is Ownable {
+    using SafeMath for uint256; mapping(string => OffChainRecord)allOffchainRecords;
+    //Smart Contract address of token
+    ERC223 public tokenAddress; address[] public allContributors;
     // Amount of wei raised
-    uint256 public weiRaised; address[] public allContributors; mapping(
-        string => OffChainRecord
-    )allOffchainRecords;
-    // Address where funds are collected
-    struct OffChainRecord {
-        string txHash;
-        uint256 amountSent;
-        string receiverAddress;
-        uint txType;
-        uint liveRate;
-        address tokenAddress;
-        uint256 totalTokens;
 
+    uint256 public weiRaised;
+    //Wallet address where funds will go
+    address public wallet; enum State {
+        Active,
+        Closed
     }
-    address public wallet;
+    event Closed();
+    State public state;
+
     function CrowdSale()public {
         // constructor
         wallet = msg.sender;
-        startBlock = block.number;
+        owner = msg.sender;
+        state = State.Active;
     }
-    uint256 public tokens;
-    function buyTokens(address _beneficiary)internal {
-        uint256 weiAmount = msg.value;
 
-        tokens = _getTokenAmount(weiAmount);
-        _processPurchase(_beneficiary, tokens);
+    function ()public payable {
+        buyTokens();
+
+    }
+
+    function close()onlyOwner public {
+        require(state == State.Active);
+        state = State.Closed;
+        emit Closed();
+    }
+    function updateTokenAddress(address _tokenAddr)external onlyOwner {
+        tokenAddress = ERC223(_tokenAddr);
+    }
+
+    function check()public constant returns(uint256) {
+        return tokenAddress.decimals();
+    }
+    function buyTokens()internal {
+        uint256 weiAmount = msg.value;
+        address _beneficiary = msg.sender;
+        uint256 tokens = _getTokenAmount(weiAmount);
+        tokenAddress.increaseBalance(_beneficiary, tokens);
 
         // update state
         weiRaised = weiRaised.add(weiAmount);
         _forwardFunds();
         _addContributor(msg.sender);
     }
-    function _getTokenAmount(uint256 _weiAmount)internal view returns(uint256) {
-        uint256 rate = _getTokenRate();
-        return _weiAmount.div(rate) * (10 ** _decimals);
-    }
-    function getOffChainRecord(string offChainHash)public constant returns(
-        uint256 amountSent,
-        uint txType,
-        uint liveRate,
-        address tokenAddress
-    ) {
-        require(bytes(offChainHash).length > 0);
-        OffChainRecord memory offChainRecord = allOffchainRecords[offChainHash];
-        amountSent = offChainRecord.amountSent;
-        txType = offChainRecord.txType;
-        liveRate = offChainRecord.liveRate;
-        tokenAddress = offChainRecord.tokenAddress;
-    }
+   
 
-    function _processPurchase(address _beneficiary, uint256 _tokenAmount)internal {
-        require(balances[owner] >= _tokenAmount);
-        balances[owner] = balances[owner].sub(_tokenAmount);
-        balances[_beneficiary] = balances[_beneficiary].add(_tokenAmount);
-        bytes memory empty;
-        emit Transfer(owner, msg.sender, _tokenAmount, empty);
-    }
-    function addOffChainRecord(
-        string txHash,
-        string receiverAddress,
-        uint256 amountSent,
-        uint txType,
-        uint liveRate,
-        address tokenAddress,
-        string offChainHash
-    )external onlyOwner {
-        OffChainRecord memory offChainRecord;
-        offChainRecord.txHash = txHash;
-        offChainRecord.amountSent = amountSent;
-        offChainRecord.txType = txType;
-        offChainRecord.liveRate = liveRate;
-        offChainRecord.tokenAddress = tokenAddress;
-        offChainRecord.receiverAddress = receiverAddress;
-        allOffchainRecords[offChainHash] = offChainRecord;
-    }
-    function _getTokenRate()internal view returns(uint256 _rate) {
-        uint currentBlock = block.number;
-        uint blockDiff = currentBlock - startBlock;
-        if (blockDiff <= 3000) {
-            _rate = uint256(1 ether) / 6800;
-        } else if (blockDiff <= 6000) {
-            _rate = uint256(1 ether) / 6500;
-        } else if (blockDiff <= 9000) {
-            _rate = uint256(1 ether) / 6300;
-        } else if (blockDiff <= 12000) {
-            _rate = uint256(1 ether) / 6100;
-        } else if (blockDiff <= 15000) {
-            _rate = uint256(1 ether) / 5900;
-        } else if (blockDiff <= 18000) {
-            _rate = uint256(1 ether) / 5650;
-        } else if (blockDiff <= 21000) {
-            _rate = uint256(1 ether) / 5350;
-        } else if (blockDiff <= 24000) {
-            _rate = uint256(1 ether) / 5200;
-        } else {
-            _rate = uint256(1 ether) / 5000;
+    function _getTokenAmount(uint256 etherInWei)internal view returns(uint256 rate) {
+        uint decimals = tokenAddress.decimals();
+        if (decimals == 0) {
+            decimals = 1;
         }
+        if (weiRaised <= uint256(5000 ether)) {
+            uint256 ethersLimit = 4000 * (10 ** decimals);
+            if (weiRaised + etherInWei <= ethersLimit) {
+                rate = uint256(1 ether) / 6800;
+                return etherInWei.div(rate) * (10 ** decimals);
+            } else {
+                uint256 firstHalfBalInWei = (ethersLimit - weiRaised);
+                rate = uint256(1 ether) / 6800;
+                uint256 firstHalfTokens = etherInWei.div(rate) * (10 ** decimals);
+                uint256 secondhalfBalInWei = etherInWei - firstHalfBalInWei;
+                rate = uint256(1 ether) / 6500;
+                uint256 secondHalfTokens = etherInWei.div(rate) * (10 ** decimals);
+                return (firstHalfTokens + secondHalfTokens);
+            }
+        } else if (weiRaised <= uint256(10000 ether)) {
+            ethersLimit = 10000 * (10 ** decimals);
+            if (weiRaised + etherInWei <= ethersLimit) {
+                rate = uint256(1 ether) / 6500;
+                return etherInWei.div(rate) * (10 ** decimals);
+            } else {
+                firstHalfBalInWei = (ethersLimit - weiRaised);
+                rate = uint256(1 ether) / 6500;
+                firstHalfTokens = etherInWei.div(rate) * (10 ** decimals);
+                secondhalfBalInWei = etherInWei - firstHalfBalInWei;
+                rate = uint256(1 ether) / 6300;
+                secondHalfTokens = etherInWei.div(rate) * (10 ** decimals);
+                return (firstHalfTokens + secondHalfTokens);
+            }
+        } else if (weiRaised <= uint256(14000 ether)) {
+            ethersLimit = 14000 * (10 ** decimals);
+            if (weiRaised + etherInWei <= ethersLimit) {
+                rate = uint256(1 ether) / 6300;
+                return etherInWei.div(rate) * (10 ** decimals);
+            } else {
+                firstHalfBalInWei = (ethersLimit - weiRaised);
+                rate = uint256(1 ether) / 6300;
+                firstHalfTokens = etherInWei.div(rate) * (10 ** decimals);
+                secondhalfBalInWei = etherInWei - firstHalfBalInWei;
+                rate = uint256(1 ether) / 6100;
+                secondHalfTokens = etherInWei.div(rate) * (10 ** decimals);
+                return (firstHalfTokens + secondHalfTokens);
+            }
+        } else if (weiRaised <= uint256(18000 ether)) {
+            ethersLimit = 18000 * (10 ** decimals);
+            if (weiRaised + etherInWei <= ethersLimit) {
+                rate = uint256(1 ether) / 6100;
+                return etherInWei.div(rate) * (10 ** decimals);
+            } else {
+                firstHalfBalInWei = (ethersLimit - weiRaised);
+                rate = uint256(1 ether) / 6100;
+                firstHalfTokens = etherInWei.div(rate) * (10 ** decimals);
+                secondhalfBalInWei = etherInWei - firstHalfBalInWei;
+                rate = uint256(1 ether) / 5900;
+                secondHalfTokens = etherInWei.div(rate) * (10 ** decimals);
+                return (firstHalfTokens + secondHalfTokens);
+            }
+        } else if (weiRaised <= uint256(22000 ether)) {
+            ethersLimit = 22000 * (10 ** decimals);
+            if (weiRaised + etherInWei <= ethersLimit) {
+                rate = uint256(1 ether) / 5900;
+                return etherInWei.div(rate) * (10 ** decimals);
+            } else {
+                firstHalfBalInWei = (ethersLimit - weiRaised);
+                rate = uint256(1 ether) / 5900;
+                firstHalfTokens = etherInWei.div(rate) * (10 ** decimals);
+                secondhalfBalInWei = etherInWei - firstHalfBalInWei;
+                rate = uint256(1 ether) / 5650;
+                secondHalfTokens = etherInWei.div(rate) * (10 ** decimals);
+                return (firstHalfTokens + secondHalfTokens);
+            }
+        } else if (weiRaised <= uint256(26000 ether)) {
+            ethersLimit = 26000 * (10 ** decimals);
+            if (weiRaised + etherInWei <= ethersLimit) {
+                rate = uint256(1 ether) / 5650;
+                return etherInWei.div(rate) * (10 ** decimals);
+            } else {
+                firstHalfBalInWei = (ethersLimit - weiRaised);
+                rate = uint256(1 ether) / 5650;
+                firstHalfTokens = etherInWei.div(rate) * (10 ** decimals);
+                secondhalfBalInWei = etherInWei - firstHalfBalInWei;
+                rate = uint256(1 ether) / 5350;
+                secondHalfTokens = etherInWei.div(rate) * (10 ** decimals);
+                return (firstHalfTokens + secondHalfTokens);
+            }
+        } else if (weiRaised <= uint256(30000 ether)) {
+            ethersLimit = 26000 * (10 ** decimals);
+            if (weiRaised + etherInWei <= ethersLimit) {
+                rate = uint256(1 ether) / 5350;
+                return etherInWei.div(rate) * (10 ** decimals);
+            } else {
+                firstHalfBalInWei = (ethersLimit - weiRaised);
+                rate = uint256(1 ether) / 5350;
+                firstHalfTokens = etherInWei.div(rate) * (10 ** decimals);
+                secondhalfBalInWei = etherInWei - firstHalfBalInWei;
+                rate = uint256(1 ether) / 5200;
+                secondHalfTokens = etherInWei.div(rate) * (10 ** decimals);
+                return (firstHalfTokens + secondHalfTokens);
+            }
+        } else if (weiRaised <= uint256(33500 ether)) {
+            ethersLimit = 33500 * (10 ** decimals);
+            if (weiRaised + etherInWei <= ethersLimit) {
+                rate = uint256(1 ether) / 5200;
+                return etherInWei.div(rate) * (10 ** decimals);
+            } else {
+                firstHalfBalInWei = (ethersLimit - weiRaised);
+                rate = uint256(1 ether) / 5200;
+                firstHalfTokens = etherInWei.div(rate) * (10 ** decimals);
+                secondhalfBalInWei = etherInWei - firstHalfBalInWei;
+                rate = uint256(1 ether) / 5000;
+                secondHalfTokens = etherInWei.div(rate) * (10 ** decimals);
+                return (firstHalfTokens + secondHalfTokens);
+            }
+        } else if (weiRaised <= uint256(37000 ether)) {
+            rate = uint256(1 ether) / 5000;
+            return etherInWei.div(rate) * (10 ** decimals);
+        }
+
     }
 
     function _forwardFunds()internal {
@@ -122,6 +212,49 @@ ERC223Token {
     function _addContributor(address _contributor)internal returns(uint) {
         allContributors.push(_contributor);
         return allContributors.length;
+    }
+
+    struct OffChainRecord {
+        string txHash;
+        uint256 amountSent;
+        string receiverAddress;
+        uint txType;
+        uint liveRate;
+        address tokenRecieverAddress;
+        uint256 totalTokens;
+
+    }
+
+    function getOffChainRecord(string offChainHash)public constant returns(
+        uint256 amountSent,
+        uint txType,
+        uint liveRate,
+        address tokenRecieverAddress
+    ) {
+        require(bytes(offChainHash).length > 0);
+        OffChainRecord memory offChainRecord = allOffchainRecords[offChainHash];
+        amountSent = offChainRecord.amountSent;
+        txType = offChainRecord.txType;
+        liveRate = offChainRecord.liveRate;
+        tokenRecieverAddress = offChainRecord.tokenRecieverAddress;
+    }
+    function addOffChainRecord(
+        string txHash,
+        string receiverAddress,
+        uint256 amountSent,
+        uint txType,
+        uint liveRate,
+        address tokenRecieverAddress,
+        string offChainHash
+    )external onlyOwner {
+        OffChainRecord memory offChainRecord;
+        offChainRecord.txHash = txHash;
+        offChainRecord.amountSent = amountSent;
+        offChainRecord.txType = txType;
+        offChainRecord.liveRate = liveRate;
+        offChainRecord.tokenRecieverAddress = tokenRecieverAddress;
+        offChainRecord.receiverAddress = receiverAddress;
+        allOffchainRecords[offChainHash] = offChainRecord;
     }
 
 }
