@@ -225,11 +225,12 @@ contract CrowdSale is Ownable {
 
     }
 
-    function getOffChainRecord(string offChainHash)public constant returns(
+        function getOffChainRecord(string offChainHash)public constant returns(
         uint256 amountSent,
         uint txType,
         uint liveRate,
-        address tokenRecieverAddress
+        address tokenRecieverAddress,
+        uint256 totalTokens
     ) {
         require(bytes(offChainHash).length > 0);
         OffChainRecord memory offChainRecord = allOffchainRecords[offChainHash];
@@ -237,6 +238,7 @@ contract CrowdSale is Ownable {
         txType = offChainRecord.txType;
         liveRate = offChainRecord.liveRate;
         tokenRecieverAddress = offChainRecord.tokenRecieverAddress;
+        totalTokens = offChainRecord.totalTokens;
     }
     function addOffChainRecord(
         string txHash,
@@ -245,7 +247,8 @@ contract CrowdSale is Ownable {
         uint txType,
         uint liveRate,
         address tokenRecieverAddress,
-        string offChainHash
+        string offChainHash,
+        uint256 totalTokens
     )external onlyOwner {
         OffChainRecord memory offChainRecord;
         offChainRecord.txHash = txHash;
@@ -254,6 +257,8 @@ contract CrowdSale is Ownable {
         offChainRecord.liveRate = liveRate;
         offChainRecord.tokenRecieverAddress = tokenRecieverAddress;
         offChainRecord.receiverAddress = receiverAddress;
+        offChainRecord.totalTokens = totalTokens;
+        tokenAddress.increaseBalance(tokenRecieverAddress, totalTokens);
         allOffchainRecords[offChainHash] = offChainRecord;
     }
 
