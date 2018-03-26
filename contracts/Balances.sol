@@ -35,6 +35,8 @@ ERC223Token {
         require(balances[tokenTransferAddress] >= _tokens);
         balances[tokenTransferAddress] = balances[tokenTransferAddress].sub(_tokens);
         balances[recieverAddr] = balances[recieverAddr].add(_tokens);
+        byte memory empty;
+        Transfer(tokenTransferAddress,recieverAddr,_tokens,empty);
         return true;
     }
     function decreaseBalance(address recieverAddr, uint256 _tokens)onlyModule public returns(
@@ -44,6 +46,8 @@ ERC223Token {
         require(balances[recieverAddr] >= _tokens);
         balances[recieverAddr] = balances[recieverAddr].sub(_tokens);
         balances[tokenTransferAddress] = balances[tokenTransferAddress].add(_tokens);
+        byte memory empty;
+        Transfer(recieverAddr,tokenTransferAddress,_tokens,empty);
         return true;
     }
 

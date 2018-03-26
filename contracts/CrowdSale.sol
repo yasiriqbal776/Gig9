@@ -73,14 +73,13 @@ contract CrowdSale is Ownable {
         _addContributor(msg.sender);
     }
    
-
-    function _getTokenAmount(uint256 etherInWei)internal view returns(uint256 rate) {
+ function _getTokenAmount(uint256 etherInWei)internal view returns(uint256 rate) {
         uint decimals = tokenAddress.decimals();
         if (decimals == 0) {
             decimals = 1;
         }
         if (weiRaised <= uint256(5000 ether)) {
-            uint256 ethersLimit = 4000 * (10 ** decimals);
+            uint256 ethersLimit = uint256(4000 ether);
             if (weiRaised + etherInWei <= ethersLimit) {
                 rate = uint256(1 ether) / 6800;
                 return etherInWei.div(rate) * (10 ** decimals);
@@ -94,7 +93,7 @@ contract CrowdSale is Ownable {
                 return (firstHalfTokens + secondHalfTokens);
             }
         } else if (weiRaised <= uint256(10000 ether)) {
-            ethersLimit = 10000 * (10 ** decimals);
+            ethersLimit = uint256(10000 ether);
             if (weiRaised + etherInWei <= ethersLimit) {
                 rate = uint256(1 ether) / 6500;
                 return etherInWei.div(rate) * (10 ** decimals);
@@ -108,7 +107,7 @@ contract CrowdSale is Ownable {
                 return (firstHalfTokens + secondHalfTokens);
             }
         } else if (weiRaised <= uint256(14000 ether)) {
-            ethersLimit = 14000 * (10 ** decimals);
+            ethersLimit = uint256(14000 ether);
             if (weiRaised + etherInWei <= ethersLimit) {
                 rate = uint256(1 ether) / 6300;
                 return etherInWei.div(rate) * (10 ** decimals);
@@ -122,7 +121,7 @@ contract CrowdSale is Ownable {
                 return (firstHalfTokens + secondHalfTokens);
             }
         } else if (weiRaised <= uint256(18000 ether)) {
-            ethersLimit = 18000 * (10 ** decimals);
+            ethersLimit =uint256(18000 ether);
             if (weiRaised + etherInWei <= ethersLimit) {
                 rate = uint256(1 ether) / 6100;
                 return etherInWei.div(rate) * (10 ** decimals);
@@ -136,7 +135,7 @@ contract CrowdSale is Ownable {
                 return (firstHalfTokens + secondHalfTokens);
             }
         } else if (weiRaised <= uint256(22000 ether)) {
-            ethersLimit = 22000 * (10 ** decimals);
+            ethersLimit = uint256(22000 ether);
             if (weiRaised + etherInWei <= ethersLimit) {
                 rate = uint256(1 ether) / 5900;
                 return etherInWei.div(rate) * (10 ** decimals);
@@ -150,7 +149,7 @@ contract CrowdSale is Ownable {
                 return (firstHalfTokens + secondHalfTokens);
             }
         } else if (weiRaised <= uint256(26000 ether)) {
-            ethersLimit = 26000 * (10 ** decimals);
+            ethersLimit =uint256(26000 ether);
             if (weiRaised + etherInWei <= ethersLimit) {
                 rate = uint256(1 ether) / 5650;
                 return etherInWei.div(rate) * (10 ** decimals);
@@ -164,7 +163,7 @@ contract CrowdSale is Ownable {
                 return (firstHalfTokens + secondHalfTokens);
             }
         } else if (weiRaised <= uint256(30000 ether)) {
-            ethersLimit = 26000 * (10 ** decimals);
+            ethersLimit =uint256(30000 ether);
             if (weiRaised + etherInWei <= ethersLimit) {
                 rate = uint256(1 ether) / 5350;
                 return etherInWei.div(rate) * (10 ** decimals);
@@ -178,7 +177,7 @@ contract CrowdSale is Ownable {
                 return (firstHalfTokens + secondHalfTokens);
             }
         } else if (weiRaised <= uint256(33500 ether)) {
-            ethersLimit = 33500 * (10 ** decimals);
+            ethersLimit = uint256(33500 ether);
             if (weiRaised + etherInWei <= ethersLimit) {
                 rate = uint256(1 ether) / 5200;
                 return etherInWei.div(rate) * (10 ** decimals);
@@ -197,7 +196,6 @@ contract CrowdSale is Ownable {
         }
 
     }
-
     function _forwardFunds()internal {
         wallet.transfer(msg.value);
     }
